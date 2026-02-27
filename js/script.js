@@ -1,7 +1,12 @@
 const deck = document.getElementById("deck");
 const shuffleBtn = document.getElementById("shuffleBtn");
+const importBtn = document.getElementById("importBtn");
+const importModal = document.getElementById("importModal");
+const closeModalBtn = document.getElementById("closeModalBtn");
+const nameFileInput = document.getElementById("nameFileInput");
 
-const cardCount = 30;
+const DEFAULT_CARD_COUNT = 30;
+let cardCount = DEFAULT_CARD_COUNT;
 let cards = [];
 let shuffleOrder = [];
 let currentPickedCard = null;
@@ -62,72 +67,133 @@ function playFlipSound() {
     osc.stop(now + 0.15);
 }
 
-// Create cards
-for (let i = 0; i < cardCount; i++) {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.dataset.index = i;
-    
-    const front = document.createElement("div");
-    front.className = "card-face card-front";
-    const nameEl = document.createElement("div");
-    nameEl.className = "card-name";
-    nameEl.innerText = "";
-    front.appendChild(nameEl);
-    
-    const back = document.createElement("div");
-    back.className = "card-face card-back";
-    back.innerText = "Question " + (i + 1);
-    
-    card.appendChild(front);
-    card.appendChild(back);
-    
-    deck.appendChild(card);
-    cards.push(card);
-    shuffleOrder.push(i);
-    
-    // Add hover effect
-    card.addEventListener("mouseenter", function() {
-        if (this === currentPickedCard) return; // Don't raise the picked card
-    playShuffleSound();
-        const currentTransform = this.style.transform;
-        const translateMatch = currentTransform.match(/translate\([^)]+\)/);
-        const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
-        this.style.transform = `${translate} translateY(-50px)`;
-    });
-    
-    card.addEventListener("mouseleave", function() {
-        if (this === currentPickedCard) return; // Don't raise the picked card
-        const currentTransform = this.style.transform;
-        const translateMatch = currentTransform.match(/translate\([^)]+\)/);
-        const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
-        this.style.transform = translate;
-    });
+function buildDeck(names) {
+    deck.innerHTML = "";
+    cards = [];
+    shuffleOrder = [];
+    currentPickedCard = null;
+
+    cardNames = names;
+    cardCount = cardNames.length;
+
+    for (let i = 0; i < cardCount; i++) {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.dataset.index = i;
+        
+        const front = document.createElement("div");
+        front.className = "card-face card-front";
+        const nameEl = document.createElement("div");
+        nameEl.className = "card-name";
+        nameEl.innerText = cardNames[i] || "";
+        front.appendChild(nameEl);
+        
+        const back = document.createElement("div");
+        back.className = "card-face card-back";
+        back.innerText = "Question " + (i + 1);
+        
+        card.appendChild(front);
+        card.appendChild(back);
+        
+        deck.appendChild(card);
+        cards.push(card);
+        shuffleOrder.push(i);
+        
+        // Add hover effect
+        card.addEventListener("mouseenter", function() {
+            if (this === currentPickedCard) return; // Don't raise the picked card
+            playShuffleSound();
+            const currentTransform = this.style.transform;
+            const translateMatch = currentTransform.match(/translate\([^)]+\)/);
+            const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
+            this.style.transform = `${translate} translateY(-50px)`;
+        });
+        
+        card.addEventListener("mouseleave", function() {
+            if (this === currentPickedCard) return; // Don't raise the picked card
+            const currentTransform = this.style.transform;
+            const translateMatch = currentTransform.match(/translate\([^)]+\)/);
+            const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
+            this.style.transform = translate;
+        });
+    }
+
+    updateCardPositions();
 }
 
-// Initialize card positions
-updateCardPositions();
+// Initialize with empty names
+buildDeck(Array.from({ length: DEFAULT_CARD_COUNT }, () => ""));
 
 shuffleBtn.addEventListener("click", shuffleCards);
 shuffleBtn.addEventListener("click", ensureAudioContext);
 
-// Load names from JSON file
+// Load names from JSON file (optional default)
 fetch("data/names.json")
     .then((res) => res.json())
     .then((names) => {
-        if (Array.isArray(names)) {
-            cardNames = names;
-            cards.forEach((card, i) => {
-                const nameEl = card.querySelector(".card-name");
-                if (nameEl) {
-                    nameEl.innerText = cardNames[i] || "";
-                }
-            });
+        if (Array.isArray(names) && names.length > 0) {
+            buildDeck(names);
         }
     })
     .catch(() => {
-        // If loading fails (e.g., file://), leave names blank
+        // If loading fails (e.g., file://), keep default blank deck
     });
+
+function openModal() {
+    importModal.classList.add("show");
+    importModal.setAttribute("aria-hidden", "false");
+}
+
+function closeModal() {
+    importModal.classList.remove("show");
+    importModal.setAttribute("aria-hidden", "true");
+    nameFileInput.value = "";
+}
+
+importBtn.addEventListener("click", openModal);
+closeModalBtn.addEventListener("click", closeModal);
+importModal.addEventListener("click", (e) => {
+    if (e.target === importModal) closeModal();
+});
+
+nameFileInput.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const text = String(reader.result || "");
+        let names = [];
+
+        // Try JSON first (supports JSON array of strings)
+        try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed)) {
+                names = parsed
+                    .map((n) => String(n).trim())
+                    .filter((n) => n.length > 0);
+            }
+        } catch (e) {
+            // Not JSON; fall back to text parsing
+        }
+
+        if (names.length === 0) {
+            names = text
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0);
+        }
+
+        if (names.length === 0) {
+            alert("No names found. Use one name per line or a JSON array.");
+            return;
+        }
+
+        buildDeck(names);
+        closeModal();
+    };
+    reader.readAsText(file);
+});
 
 function getCardPosition(order) {
     // Fan the cards in a stack with smaller offset for 30 cards
