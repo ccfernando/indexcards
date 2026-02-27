@@ -65,6 +65,16 @@ body {
     background-color: white;
 }
 
+.card-name {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111;
+    line-height: 1.2;
+}
+
 .card-back {
     background: white;
     transform: rotateY(180deg);

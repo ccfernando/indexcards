@@ -19,3 +19,17 @@ http://localhost:8000/index.html
 ## Edit names
 
 Update `data/names.json` with a JSON array of 30 names.
+
+## Import names
+
+Click **Import Names** to load a local file. Supported formats:
+- JSON array (recommended): `["Alice","Bob",...]`
+- Plain text: one name per line
+
+The deck size automatically adjusts to the number of names in the file.
+
+## Behavior notes
+
+- The top card in the stack hides its name to avoid giving away the next pick.
+- When a card is pulled up from the deck, its name is hidden.
+- The picker avoids choosing the same card twice in a row.

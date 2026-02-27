@@ -11,6 +11,7 @@ let cards = [];
 let shuffleOrder = [];
 let currentPickedCard = null;
 let cardNames = [];
+let lastPickedCardIndex = null;
 
 // Audio context for sound effects (initialized on first user gesture)
 let audioContext = null;
@@ -211,6 +212,23 @@ function updateCardPositions() {
         card.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotate}deg)`;
         card.style.zIndex = visualIndex;
     });
+    updateTopCardNameVisibility();
+}
+
+function updateTopCardNameVisibility() {
+    cards.forEach((card) => {
+        const nameEl = card.querySelector(".card-name");
+        if (nameEl) {
+            nameEl.style.visibility = "visible";
+        }
+    });
+    const topCard = cards.find((card) => Number(card.style.zIndex) === cardCount - 1);
+    if (topCard) {
+        const nameEl = topCard.querySelector(".card-name");
+        if (nameEl) {
+            nameEl.style.visibility = "hidden";
+        }
+    }
 }
 
 // Smooth shuffle animation
@@ -239,6 +257,7 @@ async function shuffleCards() {
             card.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotate}deg)`;
             card.style.zIndex = position;
         });
+        updateTopCardNameVisibility();
 
         step++;
         if (step >= steps) {
@@ -249,11 +268,28 @@ async function shuffleCards() {
 }
 
 function pickRandomCard() {
-    const randomPosition = Math.floor(Math.random() * cardCount);
-    const cardIndex = shuffleOrder[randomPosition];
+    if (cardCount === 0) return;
+    if (cardCount === 1) {
+        return;
+    }
+
+    const topPosition = cardCount - 1;
+    let randomPosition = Math.floor(Math.random() * (cardCount - 1));
+    let cardIndex = shuffleOrder[randomPosition];
+
+    if (cardCount > 1 && cardIndex === lastPickedCardIndex) {
+        // Pick again to avoid the same card twice in a row
+        randomPosition = (randomPosition + 1 + Math.floor(Math.random() * (cardCount - 2))) % (cardCount - 1);
+        cardIndex = shuffleOrder[randomPosition];
+    }
     const picked = cards[cardIndex];
 
     currentPickedCard = picked;
+    lastPickedCardIndex = cardIndex;
+    const pickedNameEl = picked.querySelector(".card-name");
+    if (pickedNameEl) {
+        pickedNameEl.style.visibility = "hidden";
+    }
     
     setTimeout(() => {
         const originalPos = getCardPosition(randomPosition);
