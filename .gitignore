@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# OS temp files
+*~
+
+# Node
+node_modules/
