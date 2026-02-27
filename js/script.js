@@ -15,6 +15,10 @@ let currentPickedCard = null;
 let cardNames = [];
 let lastPickedCardIndex = null;
 let doneExpanded = false;
+let longPressTimer = null;
+let longPressActive = false;
+let continuousShuffleInterval = null;
+let suppressNextClick = false;
 
 // Audio context for sound effects (initialized on first user gesture)
 let audioContext = null;
@@ -136,8 +140,72 @@ function buildDeck(names) {
 // Initialize with empty names
 buildDeck(Array.from({ length: DEFAULT_CARD_COUNT }, () => ""));
 
-shuffleBtn.addEventListener("click", shuffleCards);
+shuffleBtn.addEventListener("click", (e) => {
+    if (suppressNextClick) {
+        suppressNextClick = false;
+        return;
+    }
+    shuffleCards();
+});
 shuffleBtn.addEventListener("click", ensureAudioContext);
+
+function startContinuousShuffle() {
+    if (longPressActive) return;
+    longPressActive = true;
+    suppressNextClick = true;
+
+    const intervalDuration = 120;
+    continuousShuffleInterval = setInterval(() => {
+        playShuffleSound();
+        for (let i = shuffleOrder.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffleOrder[i], shuffleOrder[j]] = [shuffleOrder[j], shuffleOrder[i]];
+        }
+
+        shuffleOrder.forEach((cardIndex, position) => {
+            const card = cards[cardIndex];
+            const pos = getCardPosition(position);
+            card.style.transition = "transform 0.2s ease";
+            card.style.transform = `translate(${pos.x}px, ${pos.y}px) rotate(${pos.rotate}deg)`;
+            card.style.zIndex = position;
+        });
+        updateTopCardNameVisibility();
+    }, intervalDuration);
+}
+
+function stopContinuousShuffle() {
+    if (!longPressActive) return;
+    if (continuousShuffleInterval) {
+        clearInterval(continuousShuffleInterval);
+        continuousShuffleInterval = null;
+    }
+    longPressActive = false;
+    pickRandomCard();
+}
+
+function handlePressStart() {
+    if (longPressTimer) clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+        ensureAudioContext();
+        startContinuousShuffle();
+    }, 350);
+}
+
+function handlePressEnd() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+    if (longPressActive) {
+        stopContinuousShuffle();
+    }
+}
+
+shuffleBtn.addEventListener("mousedown", handlePressStart);
+shuffleBtn.addEventListener("mouseup", handlePressEnd);
+shuffleBtn.addEventListener("mouseleave", handlePressEnd);
+shuffleBtn.addEventListener("touchstart", handlePressStart, { passive: true });
+shuffleBtn.addEventListener("touchend", handlePressEnd);
 
 // Load names from JSON file (optional default)
 fetch("data/names.json")
@@ -280,12 +348,14 @@ async function shuffleCards() {
 
 function pickRandomCard() {
     if (cardCount === 0) return;
-    if (cardCount === 1) {
-        return;
-    }
+    let randomPosition = 0;
 
-    const topPosition = cardCount - 1;
-    let randomPosition = Math.floor(Math.random() * (cardCount - 1));
+    if (cardCount === 1) {
+        randomPosition = 0;
+    } else {
+        // Never pick the top card in the stack
+        randomPosition = Math.floor(Math.random() * (cardCount - 1));
+    }
     let cardIndex = shuffleOrder[randomPosition];
 
     if (cardCount > 1 && cardIndex === lastPickedCardIndex) {
