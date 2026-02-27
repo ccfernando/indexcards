@@ -23,6 +23,10 @@ let suppressNextClick = false;
 // Audio context for sound effects (initialized on first user gesture)
 let audioContext = null;
 
+function makeDefaultNames(count) {
+    return Array.from({ length: count }, (_, i) => `Name ${i + 1}`);
+}
+
 async function ensureAudioContext() {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -91,17 +95,19 @@ function buildDeck(names) {
         const card = document.createElement("div");
         card.className = "card";
         card.dataset.index = i;
+        const cardName = cardNames[i] || `Name ${i + 1}`;
+        card.dataset.name = cardName;
         
         const front = document.createElement("div");
         front.className = "card-face card-front";
         const nameEl = document.createElement("div");
         nameEl.className = "card-name";
-        nameEl.innerText = cardNames[i] || "";
+        nameEl.innerText = cardName;
         front.appendChild(nameEl);
         
         const back = document.createElement("div");
         back.className = "card-face card-back";
-        back.innerText = "Question " + (i + 1);
+        back.innerText = cardName;
         
         card.appendChild(front);
         card.appendChild(back);
@@ -137,8 +143,8 @@ function buildDeck(names) {
     updateCardPositions();
 }
 
-// Initialize with empty names
-buildDeck(Array.from({ length: DEFAULT_CARD_COUNT }, () => ""));
+// Initialize with default names so card text is never blank
+buildDeck(makeDefaultNames(DEFAULT_CARD_COUNT));
 
 shuffleBtn.addEventListener("click", (e) => {
     if (suppressNextClick) {
@@ -216,7 +222,7 @@ fetch("data/names.json")
         }
     })
     .catch(() => {
-        // If loading fails (e.g., file://), keep default blank deck
+        // If loading fails (e.g., missing file), keep default names
     });
 
 function openModal() {
@@ -396,6 +402,10 @@ function pickRandomCard() {
 function flipCard(event) {
     if (currentPickedCard) {
         playFlipSound();
+        const backFace = currentPickedCard.querySelector(".card-back");
+        if (backFace) {
+            backFace.innerText = currentPickedCard.dataset.name || "";
+        }
         const isFlipped = currentPickedCard.classList.toggle("flipped");
         // Get the current position transform
         const currentTransform = currentPickedCard.style.transform;
