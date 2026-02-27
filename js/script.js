@@ -312,6 +312,10 @@ function updateTopCardNameVisibility() {
 
 // Smooth shuffle animation
 async function shuffleCards() {
+    if (cardCount <= 1) {
+        pickRandomCard();
+        return;
+    }
     await ensureAudioContext();
     const duration = 1500; // Total animation time in ms
     const steps = 15;
