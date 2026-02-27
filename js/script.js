@@ -106,10 +106,28 @@ function buildDeck(names) {
         cards.push(card);
         shuffleOrder.push(i);
         
-        // Add hover effect
-        // Hover handlers (removed when sent to Done)
-        card._onHoverIn = function () {};
-        card._onHoverOut = function () {};
+        // Add hover effect (deck only)
+        card._onHoverIn = function () {
+            if (this.classList.contains("in-done") || this.closest(".done-stack")) return;
+            if (this === currentPickedCard) return; // Don't raise the picked card
+            playShuffleSound();
+            const currentTransform = this.style.transform;
+            const translateMatch = currentTransform.match(/translate\([^)]+\)/);
+            const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
+            this.style.transform = `${translate} translateY(-50px)`;
+        };
+
+        card._onHoverOut = function () {
+            if (this.classList.contains("in-done") || this.closest(".done-stack")) return;
+            if (this === currentPickedCard) return; // Don't raise the picked card
+            const currentTransform = this.style.transform;
+            const translateMatch = currentTransform.match(/translate\([^)]+\)/);
+            const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
+            this.style.transform = translate;
+        };
+
+        card.addEventListener("mouseenter", card._onHoverIn);
+        card.addEventListener("mouseleave", card._onHoverOut);
     }
 
     updateCardPositions();
