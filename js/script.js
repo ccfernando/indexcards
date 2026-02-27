@@ -4,6 +4,8 @@ const importBtn = document.getElementById("importBtn");
 const importModal = document.getElementById("importModal");
 const closeModalBtn = document.getElementById("closeModalBtn");
 const nameFileInput = document.getElementById("nameFileInput");
+const doneBtn = document.getElementById("doneBtn");
+const doneStack = document.getElementById("doneStack");
 
 const DEFAULT_CARD_COUNT = 30;
 let cardCount = DEFAULT_CARD_COUNT;
@@ -12,6 +14,7 @@ let shuffleOrder = [];
 let currentPickedCard = null;
 let cardNames = [];
 let lastPickedCardIndex = null;
+let doneExpanded = false;
 
 // Audio context for sound effects (initialized on first user gesture)
 let audioContext = null;
@@ -70,9 +73,12 @@ function playFlipSound() {
 
 function buildDeck(names) {
     deck.innerHTML = "";
+    doneStack.innerHTML = "";
     cards = [];
     shuffleOrder = [];
     currentPickedCard = null;
+    lastPickedCardIndex = null;
+    doneBtn.disabled = true;
 
     cardNames = names;
     cardCount = cardNames.length;
@@ -101,22 +107,28 @@ function buildDeck(names) {
         shuffleOrder.push(i);
         
         // Add hover effect
-        card.addEventListener("mouseenter", function() {
+        // Hover handlers (removed when sent to Done)
+        card._onHoverIn = function () {
+            if (this.classList.contains("in-done") || this.closest(".done-stack") || !this.closest("#deck")) return;
             if (this === currentPickedCard) return; // Don't raise the picked card
             playShuffleSound();
             const currentTransform = this.style.transform;
             const translateMatch = currentTransform.match(/translate\([^)]+\)/);
             const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
             this.style.transform = `${translate} translateY(-50px)`;
-        });
-        
-        card.addEventListener("mouseleave", function() {
+        };
+
+        card._onHoverOut = function () {
+            if (this.classList.contains("in-done") || this.closest(".done-stack") || !this.closest("#deck")) return;
             if (this === currentPickedCard) return; // Don't raise the picked card
             const currentTransform = this.style.transform;
             const translateMatch = currentTransform.match(/translate\([^)]+\)/);
             const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
             this.style.transform = translate;
-        });
+        };
+
+        card.addEventListener("mouseenter", card._onHoverIn);
+        card.addEventListener("mouseleave", card._onHoverOut);
     }
 
     updateCardPositions();
@@ -290,6 +302,7 @@ function pickRandomCard() {
     if (pickedNameEl) {
         pickedNameEl.style.visibility = "hidden";
     }
+    doneBtn.disabled = false;
     
     setTimeout(() => {
         const originalPos = getCardPosition(randomPosition);
@@ -323,3 +336,111 @@ function flipCard(event) {
         }
     }
 }
+
+function rebuildShuffleOrder() {
+    shuffleOrder = cards.map((_, i) => i);
+    cardCount = cards.length;
+}
+
+function sendCurrentToDone() {
+    if (!currentPickedCard) return;
+
+    // Remove from deck array
+    const indexInDeck = cards.indexOf(currentPickedCard);
+    if (indexInDeck !== -1) {
+        cards.splice(indexInDeck, 1);
+    }
+
+    // Reset transform and show name in done section
+    currentPickedCard.style.transition = "none";
+    currentPickedCard.style.transform = "none";
+    const nameEl = currentPickedCard.querySelector(".card-name");
+    if (nameEl) {
+        nameEl.style.visibility = "visible";
+    }
+
+    currentPickedCard.dataset.inDone = "1";
+    currentPickedCard.classList.add("in-done");
+    // Remove hover raise in Done
+    if (currentPickedCard._onHoverIn) {
+        currentPickedCard.removeEventListener("mouseenter", currentPickedCard._onHoverIn);
+    }
+    if (currentPickedCard._onHoverOut) {
+        currentPickedCard.removeEventListener("mouseleave", currentPickedCard._onHoverOut);
+    }
+    doneStack.appendChild(currentPickedCard);
+    // Ensure no residual hover transform
+    currentPickedCard.style.transform = "none";
+
+    // Clicking a done card returns it to the deck
+    currentPickedCard.addEventListener("click", returnCardToDeck);
+
+    currentPickedCard = null;
+    doneBtn.disabled = true;
+    rebuildShuffleOrder();
+    updateCardPositions();
+    updateDonePositions();
+}
+
+function returnCardToDeck(event) {
+    const card = event.currentTarget;
+    // Remove the done-click handler to avoid duplicates
+    card.removeEventListener("click", returnCardToDeck);
+
+    card.dataset.inDone = "0";
+    card.classList.remove("in-done");
+    // Restore hover raise when returning to deck
+    if (card._onHoverIn) {
+        card.addEventListener("mouseenter", card._onHoverIn);
+    }
+    if (card._onHoverOut) {
+        card.addEventListener("mouseleave", card._onHoverOut);
+    }
+    deck.appendChild(card);
+    cards.push(card);
+    rebuildShuffleOrder();
+    updateCardPositions();
+    updateDonePositions();
+}
+
+doneBtn.addEventListener("click", sendCurrentToDone);
+
+function updateDonePositions() {
+    const doneCards = Array.from(doneStack.querySelectorAll(".card"));
+    const stackWidth = doneStack.clientWidth;
+    const stackHeight = doneStack.clientHeight;
+    doneCards.forEach((card, i) => {
+        if (card._onHoverIn && card.dataset.hoverDisabled !== "1") {
+            card.removeEventListener("mouseenter", card._onHoverIn);
+            card.removeEventListener("mouseleave", card._onHoverOut);
+            card.dataset.hoverDisabled = "1";
+        }
+        const cardWidth = card.offsetWidth;
+        const cardHeight = card.offsetHeight;
+        const baseX = Math.floor((stackWidth - cardWidth) / 2);
+        let x = baseX;
+        let y = Math.floor((stackHeight - cardHeight) / 2);
+
+        if (doneExpanded) {
+            const gap = 8;
+            x = baseX;
+            y = i * (cardHeight + gap);
+        } else {
+            const offset = 3;
+            x = baseX + i * offset;
+            y = Math.floor((stackHeight - cardHeight) / 2) + i * offset;
+        }
+        card.style.transform = `translate(${x}px, ${y}px)`;
+        card.style.zIndex = i;
+    });
+}
+
+doneStack.addEventListener("mouseenter", () => {
+    doneExpanded = true;
+    updateDonePositions();
+});
+
+doneStack.addEventListener("mouseleave", () => {
+    doneExpanded = false;
+    updateDonePositions();
+});

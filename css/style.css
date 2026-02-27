@@ -144,3 +144,45 @@ button {
     display: flex;
     justify-content: flex-end;
 }
+
+.done {
+    position: absolute;
+    right: 40px;
+    top: 80px;
+    width: 220px;
+}
+
+.done-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.done-stack {
+    position: relative;
+    width: 200px;
+    height: 150px;
+    margin: 0 auto;
+    border: 2px dashed #bbb;
+    border-radius: 8px;
+    background: #fafafa;
+    overflow: visible;
+}
+
+.done .card {
+    position: absolute;
+    width: 188px;
+    height: 120px;
+    font-size: 14px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    pointer-events: none;
+}
+
+.done .card:hover {
+    transform: none !important;
+}
+
+.done .card-face {
+    padding: 12px;
+}
