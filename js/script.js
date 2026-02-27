@@ -108,27 +108,8 @@ function buildDeck(names) {
         
         // Add hover effect
         // Hover handlers (removed when sent to Done)
-        card._onHoverIn = function () {
-            if (this.classList.contains("in-done") || this.closest(".done-stack") || !this.closest("#deck")) return;
-            if (this === currentPickedCard) return; // Don't raise the picked card
-            playShuffleSound();
-            const currentTransform = this.style.transform;
-            const translateMatch = currentTransform.match(/translate\([^)]+\)/);
-            const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
-            this.style.transform = `${translate} translateY(-50px)`;
-        };
-
-        card._onHoverOut = function () {
-            if (this.classList.contains("in-done") || this.closest(".done-stack") || !this.closest("#deck")) return;
-            if (this === currentPickedCard) return; // Don't raise the picked card
-            const currentTransform = this.style.transform;
-            const translateMatch = currentTransform.match(/translate\([^)]+\)/);
-            const translate = translateMatch ? translateMatch[0] : "translate(0px, 0px)";
-            this.style.transform = translate;
-        };
-
-        card.addEventListener("mouseenter", card._onHoverIn);
-        card.addEventListener("mouseleave", card._onHoverOut);
+        card._onHoverIn = function () {};
+        card._onHoverOut = function () {};
     }
 
     updateCardPositions();
@@ -408,7 +389,20 @@ doneBtn.addEventListener("click", sendCurrentToDone);
 function updateDonePositions() {
     const doneCards = Array.from(doneStack.querySelectorAll(".card"));
     const stackWidth = doneStack.clientWidth;
-    const stackHeight = doneStack.clientHeight;
+    let targetHeight = 150;
+
+    if (doneExpanded) {
+        const sampleCard = doneCards[0];
+        if (sampleCard) {
+            const cardHeight = sampleCard.offsetHeight;
+            const gap = 8;
+            const totalHeight = doneCards.length * (cardHeight + gap) - gap;
+            targetHeight = Math.max(150, totalHeight);
+        }
+    }
+
+    doneStack.style.height = `${targetHeight}px`;
+    const stackHeight = targetHeight;
     doneCards.forEach((card, i) => {
         if (card._onHoverIn && card.dataset.hoverDisabled !== "1") {
             card.removeEventListener("mouseenter", card._onHoverIn);
@@ -435,12 +429,14 @@ function updateDonePositions() {
     });
 }
 
-doneStack.addEventListener("mouseenter", () => {
+const doneContainer = document.getElementById("done");
+
+doneContainer.addEventListener("mouseenter", () => {
     doneExpanded = true;
     updateDonePositions();
 });
 
-doneStack.addEventListener("mouseleave", () => {
+doneContainer.addEventListener("mouseleave", () => {
     doneExpanded = false;
     updateDonePositions();
 });
